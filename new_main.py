@@ -8,6 +8,10 @@ screen = pygame.display.set_mode(size)
 
 
 class Player(pygame.sprite.Sprite):
+    """
+    Класс модельки, управляемой игроком.
+    Способен передвигаться горизонтально и вертикально по нажатию соответствующих клавиш клавиатуры.
+    """
     def __init__(self, screen, start_x, start_y):
         super().__init__()
         self.image = pygame.image.load("mario_stand_right.png")
@@ -20,9 +24,21 @@ class Player(pygame.sprite.Sprite):
         self.speed_jump = 10
 
     def draw(self, screen):
+        """
+        Функция отрисовки.
+        Рисует модельку объекта класса с учётом направления нажатых клавиш(влево или вправо) на поверхности screen.
+        screen: Surface.
+        """
         screen.blit(pygame.transform.flip(self.image, self.reflection, False), self.rect)
 
     def move(self, platforms):
+        """
+        Функция обновления и перемещения.
+        Рассчитывает направление и скорость (горизонтальную и вертикальную),
+        перемещает модельку на указанные координаты.
+        platforms: array; массив платформ, с которыми возможна коллизия.
+        """
+
         onground = pygame.sprite.spritecollideany(self, platforms)
         keys = pygame.key.get_pressed()
         destination = max(keys[pygame.K_d], keys[pygame.K_RIGHT]) - max(keys[pygame.K_a], keys[pygame.K_LEFT])
@@ -47,6 +63,10 @@ class Player(pygame.sprite.Sprite):
 
 
 class Platform(pygame.sprite.Sprite):
+    """
+    Класс платформ, способных к коллизии с моделькой игрока.
+    Основа для разных типов платформ.
+    """
     def __init__(self, screen, pos_x, pos_y, width, height):
         super().__init__()
         self.image = pygame.image.load("platform.jpg")
@@ -54,6 +74,11 @@ class Platform(pygame.sprite.Sprite):
         self.rect = pygame.Rect(pos_x, pos_y, width, height)
 
     def draw(self, screen):
+        """
+        Функция отрисовки платформы.
+        Рисует модельку объекта класса.
+        screen: Surface.
+        """
         screen.blit(self.surf, self.rect)
 
 
@@ -62,15 +87,17 @@ def main():
     clock = pygame.time.Clock()
     finished = False
     player = Player(screen, 700, 500)
-    platform = Platform(screen, 650, 550, 120, 20)
-    platforms = [platform]
+    platforms = []
+    for i in range(5):
+        platforms.append(Platform(screen, 645 - 30*i, 545-50*i, 120, 10))
     while not finished:
         clock.tick(FPS)
         pygame.display.update()
         screen.fill(white)
         player.move(platforms)
         player.draw(screen)
-        platform.draw(screen)
+        for platform in platforms:
+            platform.draw(screen)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 finished = True
