@@ -53,12 +53,38 @@ class Platform(pygame.sprite.Sprite):
         screen.blit(self.surf, self.rect)
 
 
+class MovingPlatform(Platform):
+    def __init__(self, screen, pos_x, pos_y, width, height, speed_x, speed_y):
+        super().__init__(self, pos_x, pos_y, width, height)
+        self.speed_x = speed_x
+        self.speed_y = speed_y
+
+    def platform_move(self):
+        self.rect[0] += self.speed_x
+        self.rect[1] += self.speed_y
+        if self.rect[0] + self.rect.width / 2 < 60 or \
+           self.rect[0] + self.rect.width / 2 > 740:
+           self.speed_x = -self.speed_x
+        if self.rect[1] + self.rect.height / 2 < 20 or \
+           self.rect[1] + self.rect.height / 2 > 580:
+           self.speed_y = -self.speed_y
+
+    def approaching_check(self, platforms):
+        for plat in platforms:
+            if abs(self.rect[0] - plat.rect[0]) < 70 and \
+               self.rect[1] == plat.rect[1] and \
+               plat != self:
+                self.speed_y = -self.speed_y
+                self.speed_x = -self.speed_x
+
+
+
 def move(player, platforms):
     """
     Функция обновления и перемещения.
     Рассчитывает направление и скорость (горизонтальную и вертикальную),
     перемещает модельку на указанные координаты.
-    При достижении модельки середины экрана начинает двигать платформы
+    При достижении моделькой игрока середины экрана начинает двигать платформы
     в противоположную сторону вниз с той же по модулю скоростью,
     имитируя движение камеры вслед за игроком.
     platforms: array; массив платформ, с которыми возможна коллизия.
@@ -77,6 +103,11 @@ def move(player, platforms):
     else:
         player.speed_x += destination
 
+    for plat in platforms:
+        if plat.__class__ == MovingPlatform:
+            plat.platform_move()
+            plat.approaching_check(platforms=platforms)
+
     if onground and abs(player.speed_y) > 0:
         player.speed_y = 0
     if not onground and player.speed_y <= 15:
@@ -93,25 +124,38 @@ def move(player, platforms):
         player.rect[1] -= round(player.speed_y)
 
     player.rect[0] += round(player.speed_x)
-    if player.rect[0] > 800:
+    if player.rect[0] + player.rect.width / 2 > 800:
         player.rect[0] -= 800
-    if player.rect[0] < 0:
+    if player.rect[0] + player.rect.width / 2 < 0:
         player.rect[0] += 800
 
 
 def spawn_start():
     platforms = []
     for i in range(7):
-        platforms.append(Platform(screen=screen, pos_x=randint(50, 750),
-                                  pos_y=-50 + 100 * i, width=120, height=20))
+        chance = randint(1, 8)
+        if chance == 8:
+            platforms.append(MovingPlatform(screen=screen,
+                                            pos_x=randint(0, 700),
+                                            pos_y=-50 + 100 * i, width=120,
+                                            height=20, speed_x=5, speed_y=0))
+        else:
+            platforms.append(Platform(screen=screen, pos_x=randint(0, 700),
+                                      pos_y=-50 + 100 * i, width=120, height=20))
     return platforms
 
 
 def changing_platforms(platforms):
     for i in range(len(platforms)):
         if platforms[i].rect[1] > 600:
-            platforms[i] = Platform(screen=screen, pos_x=randint(50, 750),
-                                    pos_y=-50, width=120, height=20)
+            chance = randint(1, 8)
+            if chance == 8:
+                platforms[i] = MovingPlatform(screen=screen, pos_x=randint(0, 700),
+                                              pos_y=-50, width=120, height=20,
+                                              speed_x=5, speed_y=0)
+            else:
+                platforms[i] = Platform(screen=screen, pos_x=randint(0, 700),
+                                        pos_y=-50, width=120, height=20)
 
 
 def game_over(player):
