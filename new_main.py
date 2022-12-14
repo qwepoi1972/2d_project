@@ -1,5 +1,5 @@
 import pygame
-from random import randint
+from random import randint, choice
 from math import copysign
 FPS = 60
 size = [800, 600]
@@ -38,11 +38,12 @@ class Platform(pygame.sprite.Sprite):
     Класс платформ, способных к коллизии с моделькой игрока.
     Основа для разных типов платформ.
     """
-    def __init__(self, screen, pos_x, pos_y, width, height):
+    def __init__(self, screen, pos_y, width, height):
         super().__init__()
+        self.pos_x = randint(40, 640)
         self.image = pygame.image.load("platform.jpg")
         self.surf = pygame.transform.scale(self.image, (width, height))
-        self.rect = pygame.Rect(pos_x, pos_y, width, height)
+        self.rect = pygame.Rect(self.pos_x, pos_y, width, height)
 
     def draw(self, screen):
         """
@@ -53,33 +54,21 @@ class Platform(pygame.sprite.Sprite):
         screen.blit(self.surf, self.rect)
 
 
-class MovingPlatform(Platform):
-    def __init__(self, screen, pos_x, pos_y, width, height, speed_x, speed_y):
-        super().__init__(self, pos_x, pos_y, width, height)
-        self.speed_x = speed_x
-        self.speed_y = speed_y
+class HorizontalMovingPlatform(Platform):
+    def __init__(self, screen, pos_y, width, height):
+        super().__init__(self, pos_y, width, height)
+        self.speed_x = 5
+        self.traj_length = randint(100, 250)
+        self.pos_x = randint(40 + self.traj_length, 640 - self.traj_length)
 
     def platform_move(self):
-        self.rect[0] += self.speed_x
-        self.rect[1] += self.speed_y
-        if self.rect[0] + self.rect.width / 2 < 60 or \
-           self.rect[0] + self.rect.width / 2 > 740:
-           self.speed_x = -self.speed_x
-        if self.rect[1] + self.rect.height / 2 < 20 or \
-           self.rect[1] + self.rect.height / 2 > 580:
-           self.speed_y = -self.speed_y
-
-    def approaching_check(self, platforms):
-        for plat in platforms:
-            if abs(self.rect[0] - plat.rect[0]) < 70 and \
-               self.rect[1] == plat.rect[1] and \
-               plat != self:
-                self.speed_y = -self.speed_y
-                self.speed_x = -self.speed_x
+        self.rect[0] = self.rect[0] + self.speed_x
+        if self.rect[0] < self.pos_x - self.traj_length and self.speed_x < 0 or \
+           self.rect[0] > self.pos_x + self.traj_length and self.speed_x > 0:
+            self.speed_x = -self.speed_x
 
 
-
-def move(player, platforms):
+def move(player, platforms, score):
     """
     Функция обновления и перемещения.
     Рассчитывает направление и скорость (горизонтальную и вертикальную),
@@ -104,9 +93,8 @@ def move(player, platforms):
         player.speed_x += destination
 
     for plat in platforms:
-        if plat.__class__ == MovingPlatform:
+        if plat.__class__ == HorizontalMovingPlatform:
             plat.platform_move()
-            plat.approaching_check(platforms=platforms)
 
     if onground and abs(player.speed_y) > 0:
         player.speed_y = 0
@@ -129,33 +117,45 @@ def move(player, platforms):
     if player.rect[0] + player.rect.width / 2 < 0:
         player.rect[0] += 800
 
+    if player.speed_y > 0:
+        return score + player.speed_y
+    else:
+        return score
+
 
 def spawn_start():
     platforms = []
     for i in range(7):
-        chance = randint(1, 8)
-        if chance == 8:
-            platforms.append(MovingPlatform(screen=screen,
-                                            pos_x=randint(0, 700),
-                                            pos_y=-50 + 100 * i, width=120,
-                                            height=20, speed_x=5, speed_y=0))
-        else:
-            platforms.append(Platform(screen=screen, pos_x=randint(0, 700),
-                                      pos_y=-50 + 100 * i, width=120, height=20))
+        platforms.append(Platform(screen=screen, pos_y=-50 + 100 * i,
+                                  width=120, height=20))
     return platforms
 
 
-def changing_platforms(platforms):
-    for i in range(len(platforms)):
-        if platforms[i].rect[1] > 600:
-            chance = randint(1, 8)
-            if chance == 8:
-                platforms[i] = MovingPlatform(screen=screen, pos_x=randint(0, 700),
-                                              pos_y=-50, width=120, height=20,
-                                              speed_x=5, speed_y=0)
-            else:
-                platforms[i] = Platform(screen=screen, pos_x=randint(0, 700),
-                                        pos_y=-50, width=120, height=20)
+def generating_platforms(platforms, score, score_):
+    if score - score_ >= 50:
+        max_height = 0
+        for plat in platforms:
+            if plat.rect[1] < max_height:
+                max_height = plat.rect[1]
+        chance = randint(1, 8)
+        if chance > 5:
+            platforms.append(HorizontalMovingPlatform(screen=screen,
+                                                      pos_y=max_height-100,
+                                                      width=120,
+                                                      height=20))
+        else:
+            platforms.append(Platform(screen=screen,
+                                      pos_y=max_height-100,
+                                      width=120, height=20))
+        return score
+    else:
+        return score_
+
+
+def deleting_platforms(platforms):
+    for plat in platforms:
+        if plat.rect[1] > 600:
+            platforms.remove(plat)
 
 
 def game_over(player):
@@ -173,6 +173,8 @@ def main():
     clock = pygame.time.Clock()
     finished = False
     game_over_status = False
+    score = 0
+    score_ = 0
     platforms = spawn_start()
     player = Player(screen=screen, start_x=platforms[-1].rect[0],
                     start_y=platforms[-1].rect[1] - 50)
@@ -184,8 +186,9 @@ def main():
         screen.fill(white)
         if not game_over_status:
             game_over_status = game_over(player=player)
-            changing_platforms(platforms)
-            move(player, platforms)
+            score_ = generating_platforms(platforms, score=score, score_=score_)
+            deleting_platforms(platforms)
+            score = move(player=player, platforms=platforms, score=score)
             player.draw(screen)
             for plat in platforms:
                 plat.draw(screen)
