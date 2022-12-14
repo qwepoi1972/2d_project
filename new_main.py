@@ -1,4 +1,5 @@
 import pygame
+from random import randint
 from math import copysign
 FPS = 60
 size = [800, 600]
@@ -20,8 +21,8 @@ class Player(pygame.sprite.Sprite):
         self.reflection = False
         self.speed_x = 0
         self.speed_y = 0
-        self.speed_max = 10
-        self.speed_jump = 10
+        self.speed_max = 15
+        self.speed_jump = 15
 
     def draw(self, screen):
         """
@@ -30,36 +31,6 @@ class Player(pygame.sprite.Sprite):
         screen: Surface.
         """
         screen.blit(pygame.transform.flip(self.image, self.reflection, False), self.rect)
-
-    def move(self, platforms):
-        """
-        Функция обновления и перемещения.
-        Рассчитывает направление и скорость (горизонтальную и вертикальную),
-        перемещает модельку на указанные координаты.
-        platforms: array; массив платформ, с которыми возможна коллизия.
-        """
-
-        onground = pygame.sprite.spritecollideany(self, platforms)
-        keys = pygame.key.get_pressed()
-        destination = max(keys[pygame.K_d], keys[pygame.K_RIGHT]) - max(keys[pygame.K_a], keys[pygame.K_LEFT])
-        if destination != 0:
-            self.reflection = not bool((destination+1)/2)
-        if destination == 0:
-            self.speed_x *= 0.7
-        elif abs(self.speed_x) >= self.speed_max:
-            self.speed_x = copysign(self.speed_max, self.speed_x)
-        else:
-            self.speed_x += destination
-
-        if onground and abs(self.speed_y) > 0:
-            self.speed_y = 0
-        if not onground and self.speed_y <= 15:
-            self.speed_y -= 1
-        if onground and (keys[pygame.K_UP] or keys[pygame.K_SPACE]):
-            self.speed_y += self.speed_jump
-
-        self.rect[0] += round(self.speed_x)
-        self.rect[1] -= round(self.speed_y)
 
 
 class Platform(pygame.sprite.Sprite):
@@ -82,22 +53,79 @@ class Platform(pygame.sprite.Sprite):
         screen.blit(self.surf, self.rect)
 
 
+def move(player, platforms):
+    """
+    Функция обновления и перемещения.
+    Рассчитывает направление и скорость (горизонтальную и вертикальную),
+    перемещает модельку на указанные координаты.
+    При достижении модельки середины экрана начинает двигать платформы
+    в противоположную сторону вниз с той же по модулю скоростью,
+    имитируя движение камеры вслед за игроком.
+    platforms: array; массив платформ, с которыми возможна коллизия.
+    """
+
+    onground = pygame.sprite.spritecollideany(player, platforms)
+    keys = pygame.key.get_pressed()
+    destination = max(keys[pygame.K_d], keys[pygame.K_RIGHT]) - max(
+        keys[pygame.K_a], keys[pygame.K_LEFT])
+    if destination != 0:
+        player.reflection = not bool((destination + 1) / 2)
+    if destination == 0:
+        player.speed_x *= 0.7
+    elif abs(player.speed_x) >= player.speed_max:
+        player.speed_x = copysign(player.speed_max, player.speed_x)
+    else:
+        player.speed_x += destination
+
+    if onground and abs(player.speed_y) > 0:
+        player.speed_y = 0
+    if not onground and player.speed_y <= 15:
+        player.speed_y -= 1
+    if onground and (keys[pygame.K_UP] or keys[pygame.K_SPACE]):
+        player.speed_y += player.speed_jump
+
+    if player.rect[1] <= 300 and player.speed_y >= 0:
+        for plat in platforms:
+            plat.rect[1] += round(player.speed_y)
+
+    elif (player.rect[1] <= 300 and player.speed_y < 0) or \
+         (player.rect[1] > 300):
+        player.rect[1] -= round(player.speed_y)
+
+    player.rect[0] += round(player.speed_x)
+
+
+def spawn_start():
+    platforms = []
+    for i in range(7):
+        platforms.append(Platform(screen=screen, pos_x=randint(50, 750),
+                                  pos_y=-50 + 100 * i, width=120, height=20))
+    return platforms
+
+
+def changing_platforms(platforms):
+    for i in range(len(platforms)):
+        if platforms[i].rect[1] > 600:
+            platforms[i] = Platform(screen=screen, pos_x=randint(50, 750),
+                                    pos_y=-50, width=120, height=20)
+
+
 def main():
     pygame.init()
     clock = pygame.time.Clock()
     finished = False
-    player = Player(screen, 700, 500)
-    platforms = []
-    for i in range(5):
-        platforms.append(Platform(screen, 645 - 30*i, 545-50*i, 120, 10))
+    platforms = spawn_start()
+    player = Player(screen=screen, start_x=platforms[-1].rect[0],
+                    start_y=platforms[-1].rect[1] - 50)
     while not finished:
         clock.tick(FPS)
         pygame.display.update()
         screen.fill(white)
-        player.move(platforms)
+        changing_platforms(platforms)
+        move(player, platforms)
         player.draw(screen)
-        for platform in platforms:
-            platform.draw(screen)
+        for plat in platforms:
+            plat.draw(screen)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 finished = True
