@@ -110,25 +110,47 @@ def changing_platforms(platforms):
                                     pos_y=-50, width=120, height=20)
 
 
+def game_over(player):
+    if player.rect[1] > 600:
+        return True
+    else:
+        return False
+
+
 def main():
+
     pygame.init()
+    default_font = pygame.font.Font(None, 36)
+    game_over_text = default_font.render("Game over", True, black)
     clock = pygame.time.Clock()
     finished = False
+    game_over_status = False
     platforms = spawn_start()
     player = Player(screen=screen, start_x=platforms[-1].rect[0],
                     start_y=platforms[-1].rect[1] - 50)
     while not finished:
         clock.tick(FPS)
-        pygame.display.update()
-        screen.fill(white)
-        changing_platforms(platforms)
-        move(player, platforms)
-        player.draw(screen)
-        for plat in platforms:
-            plat.draw(screen)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 finished = True
+        screen.fill(white)
+        if not game_over_status:
+            game_over_status = game_over(player=player)
+            changing_platforms(platforms)
+            move(player, platforms)
+            player.draw(screen)
+            for plat in platforms:
+                plat.draw(screen)
+        if game_over_status:
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_r:
+                        platforms = spawn_start()
+                        player.rect[0] = platforms[-1].rect[0]
+                        player.rect[1] = platforms[-1].rect[1] - 50
+                        game_over_status = False
+            screen.blit(game_over_text, (300, 300))
+        pygame.display.update()
 
 
 if __name__ == "__main__":
