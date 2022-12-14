@@ -93,6 +93,10 @@ def move(player, platforms):
         player.rect[1] -= round(player.speed_y)
 
     player.rect[0] += round(player.speed_x)
+    if player.rect[0] > 800:
+        player.rect[0] -= 800
+    if player.rect[0] < 0:
+        player.rect[0] += 800
 
 
 def spawn_start():
@@ -142,13 +146,10 @@ def main():
             for plat in platforms:
                 plat.draw(screen)
         if game_over_status:
-            for event in pygame.event.get():
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_r:
-                        platforms = spawn_start()
-                        player.rect[0] = platforms[-1].rect[0]
-                        player.rect[1] = platforms[-1].rect[1] - 50
-                        game_over_status = False
+            platforms = spawn_start()
+            player.rect[0] = platforms[-1].rect[0]
+            player.rect[1] = platforms[-1].rect[1] - 50
+            game_over_status = False
             screen.blit(game_over_text, (300, 300))
         pygame.display.update()
 
