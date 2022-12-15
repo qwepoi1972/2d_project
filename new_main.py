@@ -1,13 +1,13 @@
 import pygame
 from numpy import sign
-from random import randint
+from random import randint, choice
+from math import copysign
 
 FPS = 60
 screen_width, screen_height = 800, 600
 black = 0, 0, 0
 white = 255, 255, 255
 screen = pygame.display.set_mode([screen_width, screen_height])
-background = pygame.transform.scale(pygame.image.load("background.jpg"), [screen_width, screen_height])
 
 
 class Player(pygame.sprite.Sprite):
@@ -15,7 +15,6 @@ class Player(pygame.sprite.Sprite):
         """
         Класс модельки, управляемой игроком.
         Способен передвигаться горизонтально и вертикально по нажатию соответствующих клавиш клавиатуры.
-        Способен совершать прыжки на некоторое расстояние.
         :param screen: Surface - поверхность, на которую отрисовывается моделька.
         :param start_x: int - координата x экрана, на которой появляется моделька.
         :param start_y: int - координата y экрана, на которой появляется моделька.
@@ -23,9 +22,8 @@ class Player(pygame.sprite.Sprite):
 
         super().__init__()
         self.screen = screen
-        self.image_stand = pygame.image.load("mario_stand_right.png")
-        self.image_jump = pygame.image.load("mario_jump_right.png")
-        self.rect = self.image_stand.get_rect()  # (start_x, start_y, 38, 72)
+        self.image = pygame.image.load("mario_stand_right.png")
+        self.rect = self.image.get_rect()
         self.rect[0], self.rect[1] = start_x, start_y
         self.reflection = False
         self.speed_x = 0
@@ -34,10 +32,18 @@ class Player(pygame.sprite.Sprite):
         self.speed_jump = 20
         self.star_check = False
 
+    def draw(self):
+        """
+        Функция отрисовки.
+        Рисует модельку объекта класса с учётом направления нажатых клавиш(влево или вправо) на поверхности self.screen.
+        """
+        self.screen.blit(pygame.transform.flip(self.image, self.reflection, False), self.rect)
+
     def check_collision_platforms(self, platforms):
         """
-        Метод проверки коллизии с платформами.
-        :param platforms: array - массив платформ, с которыми возможна коллизия.
+        Функция проверки коллизии.
+
+        :param platforms: array, массив платформ, с которыми возможна коллизия.
         """
         self.rect[0] += round(self.speed_x)
         self.rect[1] -= round(self.speed_y)
@@ -50,10 +56,6 @@ class Player(pygame.sprite.Sprite):
         return False, None
 
     def check_collision_stars(self, stars):
-        """
-        Метод проверки коллизии со звёздами.
-        :param stars: array - массив звёзд, с которыми возможна коллизия.
-        """
         collide = pygame.sprite.spritecollideany(self, stars)
         if collide:
             self.star_check = True
@@ -62,18 +64,6 @@ class Player(pygame.sprite.Sprite):
         else:
             return False
 
-    def draw(self, platforms):
-        """
-        Метод отрисовки объекта класса.
-        Рисует модельку объекта класса с учётом направления нажатых клавиш(влево или вправо) на поверхности self.screen.
-        :param platforms: array, передаётся массив платформ для проверки коллизии.
-        """
-        collide = self.check_collision_platforms(platforms)[1]
-        if not collide:
-            self.screen.blit(pygame.transform.flip(self.image_jump, self.reflection, False), self.rect)
-        else:
-            self.screen.blit(pygame.transform.flip(self.image_stand, self.reflection, False), self.rect)
-
 
 class Platform(pygame.sprite.Sprite):
     def __init__(self, screen, pos_y, width, height):
@@ -81,6 +71,7 @@ class Platform(pygame.sprite.Sprite):
         Класс платформ, способных к коллизии с моделькой игрока.
         Основа для разных типов платформ.
         :param screen: Surface - поверхность, на которую отрисовывается платформа.
+        :param pos_x: int - координата x экрана, на которой появляется моделька.
         :param pos_y: int - координата y экрана, на которой появляется моделька.
         :param width: int - толщина в пикселях платформы.
         :param height: int - высота в пикселях платформы.
@@ -94,7 +85,7 @@ class Platform(pygame.sprite.Sprite):
 
     def draw(self):
         """
-        Метод отрисовки объекта класса.
+        Функция отрисовки платформы.
         Рисует модельку объекта класса.
         """
         self.screen.blit(self.surf, self.rect)
@@ -102,22 +93,12 @@ class Platform(pygame.sprite.Sprite):
 
 class HorizontalMovingPlatform(Platform):
     def __init__(self, screen, pos_y, width, height):
-        """
-        Класс платформ, способных к коллизии с моделькой игрока и движению горизонтально с постоянной скоростью.
-        :param screen: Surface - поверхность, на которую отрисовывается платформа.
-        :param pos_y: int - координата y экрана, на которой появляется моделька.
-        :param width: int - толщина в пикселях платформы.
-        :param height: int - высота в пикселях платформы.
-        """
         super().__init__(screen=screen, pos_y=pos_y, width=width, height=height)
         self.speed_x = 5
         self.traj_length = randint(100, 250)
         self.pos_x = randint(40 + self.traj_length, 640 - self.traj_length)
 
     def platform_move(self):
-        """
-        Метод класса, отвечающий за движение объектов класса.
-        """
         self.rect[0] = self.rect[0] + self.speed_x
         if self.rect[0] < self.pos_x - self.traj_length and self.speed_x < 0 or \
            self.rect[0] > self.pos_x + self.traj_length and self.speed_x > 0:
@@ -126,24 +107,17 @@ class HorizontalMovingPlatform(Platform):
 
 class Star(pygame.sprite.Sprite):
     def __init__(self, screen, start_x, start_y):
-        """
-        Класс звёзд, способных к коллизии с моделькой игрока.
-        При коллизии с моделькой игрока игрок получает постоянную вертикальную скорость на ограниченное время.
-        :param screen: Surface - поверхность, на которую отрисовывается платформа.
-        :param start_x: int - координата x экрана, на которой появляется моделька.
-        :param start_y: int - координата y экрана, на которой появляется моделька.
-        """
         super().__init__()
         self.screen = screen
-        self.image = pygame.image.load("star.png")
+        self.image = pygame.image.load("star.jpg")
         self.rect = self.image.get_rect()
         self.rect[0], self.rect[1] = start_x, start_y
         self.reflection = False
 
     def draw(self):
         """
-        Метод отрисовки объектов класса.
-        Рисует модельку объекта класса на поверхности self.screen.
+        Функция отрисовки.
+        Рисует модельку объекта класса с учётом направления нажатых клавиш(влево или вправо) на поверхности self.screen.
         """
         self.screen.blit(self.image, self.rect)
 
@@ -157,8 +131,6 @@ def move(player, platforms, stars, score):
     вниз с той же по модулю скоростью, имитируя движение камеры вслед за игроком.
     :param player: объект класса игрок.
     :param platforms: array - массив платформ, с которыми возможна коллизия.
-    :param stars: array - массив звёзд, с которыми возможна коллизия.
-    :param score: int - значение счёта.
     """
 
     collide, platform = player.check_collision_platforms(platforms)
@@ -213,23 +185,14 @@ def move(player, platforms, stars, score):
 
 
 def spawn_start():
-    """
-    Функция создания платформ для начального экрана.
-    :return: platforms - array, массив платформ.
-    """
-    platforms = [Platform(screen=screen, pos_y=-50 + 100 * i, width=120, height=20) for i in range(7)]
+    platforms = []
+    for i in range(7):
+        platforms.append(Platform(screen=screen, pos_y=-50 + 100 * i,
+                                  width=120, height=20))
     return platforms
 
 
 def generating_platforms(platforms, stars, score, score_):
-    """
-    Функция создания платформ в ходе игры.
-    :param platforms: array - массив платформ, с которыми возможна коллизия.
-    :param stars: array - массив звёзд, с которыми возможна коллизия.
-    :param score: int - значение счёта.
-    :param score_: int - координата y самой высокой платформы.
-    :return: int - Значение score_.
-    """
     if score - score_ >= 50:
         max_height = min(platform.rect[1] for platform in platforms)
         if randint(1, 8) > 6:
@@ -249,32 +212,23 @@ def generating_platforms(platforms, stars, score, score_):
 
 
 def deleting_objects(platforms, stars):
-    """
-    Функция удаления платформ, находящихся ниже нижней границы экрана.
-    :param platforms: array - массив платформ, с которыми возможна коллизия.
-    :param stars: array - массив звёзд, с которыми возможна коллизия.
-    """
     for plat in platforms:
-        if plat.rect[1] > screen_height:
+        if plat.rect[1] > 600:
             platforms.remove(plat)
     for star in stars:
-        if star.rect[1] > screen_height:
+        if star.rect[1] > 600:
             stars.remove(star)
 
 
 def game_over(player):
-    """
-    Функция проверки смерти игрока(моделька игрока ниже нижней границы экрана).
-    :param player: Player - объект класса, управляемый игроком.
-    :return: bool - значение флага game_over_status.
-    """
-    if player.rect[1] > screen_height:
+    if player.rect[1] > 600:
         return True
     else:
         return False
 
 
 def main():
+
     pygame.init()
     default_font = pygame.font.SysFont('Verdana', 36)
     clock = pygame.time.Clock()
@@ -285,23 +239,23 @@ def main():
     stars = []
     platforms = spawn_start()
     player = Player(screen=screen, start_x=platforms[-1].rect[0],
-                    start_y=platforms[-1].rect[1] - 75)
+                    start_y=platforms[-1].rect[1] - 53)
     while not finished:
         clock.tick(FPS)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 finished = True
-            elif game_over_status and event.type == pygame.KEYDOWN:
+            if event.type == pygame.KEYDOWN and game_over_status:
                 game_over_status = False
                 score = 0
                 score_ = 0
-            elif event.type == pygame.USEREVENT+1:
+            if event.type == pygame.USEREVENT+1:
                 player.star_check = False
 
-        if not player.star_check:
-            player.star_check = player.check_collision_stars(stars)
+            if not player.star_check:
+                player.star_check = player.check_collision_stars(stars)
 
-        screen.blit(background, background.get_rect())
+        screen.fill(white)
         if not game_over_status:
             game_over_status = game_over(player=player)
             screen.blit(
@@ -311,7 +265,7 @@ def main():
             deleting_objects(platforms, stars)
             score = move(player=player, platforms=platforms,
                          score=score, stars=stars)
-            player.draw(platforms)
+            player.draw()
             for plat in platforms:
                 plat.draw()
             for star in stars:
@@ -320,8 +274,8 @@ def main():
             platforms = spawn_start()
             stars = []
             player.rect[0] = platforms[-1].rect[0]
-            player.rect[1] = platforms[-1].rect[1] - 75
-            screen.blit(default_font.render("Game Over", True, black),
+            player.rect[1] = platforms[-1].rect[1] - 50
+            screen.blit(default_font.render("Game Over" , True, black),
                         (300, 200))
             screen.blit(default_font.render("Your score is: " + str(round(score/100)), True, black),
                         (250, 300))
