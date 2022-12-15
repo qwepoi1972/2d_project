@@ -30,6 +30,7 @@ class Player(pygame.sprite.Sprite):
         self.speed_y = 0
         self.speed_max = 10
         self.speed_jump = 20
+        self.star_check = False
 
     def draw(self):
         """
@@ -38,7 +39,7 @@ class Player(pygame.sprite.Sprite):
         """
         self.screen.blit(pygame.transform.flip(self.image, self.reflection, False), self.rect)
 
-    def check_collision(self, platforms):
+    def check_collision_platforms(self, platforms):
         """
         Функция проверки коллизии.
 
@@ -51,9 +52,17 @@ class Player(pygame.sprite.Sprite):
         self.rect[1] += round(self.speed_y)
         for platform in platforms:
             if collide and abs(self.rect.bottom - platform.rect.top) <= 7:
-                onground = True
-                return onground, platform
+                return True, platform
         return False, None
+
+    def check_collision_stars(self, stars):
+        collide = pygame.sprite.spritecollideany(self, stars)
+        if collide:
+            self.star_check = True
+            pygame.time.set_timer(pygame.USEREVENT+1, 3000)
+            return True
+        else:
+            return False
 
 
 class Platform(pygame.sprite.Sprite):
@@ -96,7 +105,24 @@ class HorizontalMovingPlatform(Platform):
             self.speed_x = -self.speed_x
 
 
-def move(player, platforms, score):
+class Star(pygame.sprite.Sprite):
+    def __init__(self, screen, start_x, start_y):
+        super().__init__()
+        self.screen = screen
+        self.image = pygame.image.load("star.jpg")
+        self.rect = self.image.get_rect()
+        self.rect[0], self.rect[1] = start_x, start_y
+        self.reflection = False
+
+    def draw(self):
+        """
+        Функция отрисовки.
+        Рисует модельку объекта класса с учётом направления нажатых клавиш(влево или вправо) на поверхности self.screen.
+        """
+        self.screen.blit(self.image, self.rect)
+
+
+def move(player, platforms, stars, score):
     """
     Функция обновления и перемещения.
     Рассчитывает направление и скорость (горизонтальную и вертикальную),
@@ -107,7 +133,7 @@ def move(player, platforms, score):
     :param platforms: array - массив платформ, с которыми возможна коллизия.
     """
 
-    collide, platform = player.check_collision(platforms)
+    collide, platform = player.check_collision_platforms(platforms)
     keys = pygame.key.get_pressed()
     destination = max(keys[pygame.K_d], keys[pygame.K_RIGHT]) - max(
         keys[pygame.K_a], keys[pygame.K_LEFT])
@@ -124,17 +150,26 @@ def move(player, platforms, score):
         if plat.__class__ == HorizontalMovingPlatform:
             plat.platform_move()
 
-    if collide:
+    if not player.star_check and collide:
         player.speed_y = 0
-        player.rect[1] = platform.rect[1] - player.rect[3] + 1
-    if not collide and player.speed_jump >= player.speed_y >= -13:
+        player.rect[1] = platform.rect[1] - player.rect[3] + 5
+    if not player.star_check and not collide \
+            and player.speed_jump >= player.speed_y >= -13:
         player.speed_y -= 1
-    if collide and (keys[pygame.K_UP] or keys[pygame.K_SPACE]):
-        player.speed_y += player.speed_jump
+    else:
+        player.speed_y = min(player.speed_y + 1, player.speed_jump)
+        if player.speed_y < player.speed_jump:
+            player.speed_y += 1
+    if not player.star_check and collide \
+            and (keys[pygame.K_UP] or keys[pygame.K_SPACE]):
+        player.speed_y = player.speed_jump
 
     if player.rect[1] <= screen_height/2 and player.speed_y >= 0:
         for plat in platforms:
             plat.rect[1] += round(player.speed_y)
+        for star in stars:
+            star.rect[1] += round(player.speed_y)
+        score += round(player.speed_y)
 
     elif (player.rect[1] <= screen_height/2 and player.speed_y < 0) or \
          (player.rect[1] > screen_height/2):
@@ -146,10 +181,7 @@ def move(player, platforms, score):
     if player.rect[0] + player.rect.width / 2 < 0:
         player.rect[0] += 800
 
-    if player.speed_y > 0:
-        return score + player.speed_y
-    else:
-        return score
+    return score
 
 
 def spawn_start():
@@ -160,14 +192,10 @@ def spawn_start():
     return platforms
 
 
-def generating_platforms(platforms, score, score_):
+def generating_platforms(platforms, stars, score, score_):
     if score - score_ >= 50:
-        max_height = 0
-        for plat in platforms:
-            if plat.rect[1] < max_height:
-                max_height = plat.rect[1]
-        chance = randint(1, 8)
-        if chance > 5:
+        max_height = min(platform.rect[1] for platform in platforms)
+        if randint(1, 8) > 6:
             platforms.append(HorizontalMovingPlatform(screen=screen,
                                                       pos_y=max_height-100,
                                                       width=120,
@@ -176,15 +204,20 @@ def generating_platforms(platforms, score, score_):
             platforms.append(Platform(screen=screen,
                                       pos_y=max_height-100,
                                       width=120, height=20))
+            stars.append(Star(screen=screen, start_x=platforms[-1].pos_x,
+                              start_y=max_height-120))
         return score
     else:
         return score_
 
 
-def deleting_platforms(platforms):
+def deleting_objects(platforms, stars):
     for plat in platforms:
         if plat.rect[1] > 600:
             platforms.remove(plat)
+    for star in stars:
+        if star.rect[1] > 600:
+            stars.remove(star)
 
 
 def game_over(player):
@@ -203,6 +236,7 @@ def main():
     game_over_status = False
     score = 0
     score_ = 0
+    stars = []
     platforms = spawn_start()
     player = Player(screen=screen, start_x=platforms[-1].rect[0],
                     start_y=platforms[-1].rect[1] - 53)
@@ -211,19 +245,34 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 finished = True
-            if event.type == pygame.KEYDOWN:
+            if event.type == pygame.KEYDOWN and game_over_status:
                 game_over_status = False
+                score = 0
+                score_ = 0
+            if event.type == pygame.USEREVENT+1:
+                player.star_check = False
+
+            if not player.star_check:
+                player.star_check = player.check_collision_stars(stars)
+
         screen.fill(white)
         if not game_over_status:
             game_over_status = game_over(player=player)
-            score_ = generating_platforms(platforms, score=score, score_=score_)
-            deleting_platforms(platforms)
-            score = move(player=player, platforms=platforms, score=score)
+            screen.blit(
+                default_font.render(str(round(score / 100)), True, black),
+                (10, 10))
+            score_ = generating_platforms(platforms, stars, score=score, score_=score_)
+            deleting_objects(platforms, stars)
+            score = move(player=player, platforms=platforms,
+                         score=score, stars=stars)
             player.draw()
             for plat in platforms:
                 plat.draw()
+            for star in stars:
+                star.draw()
         if game_over_status:
             platforms = spawn_start()
+            stars = []
             player.rect[0] = platforms[-1].rect[0]
             player.rect[1] = platforms[-1].rect[1] - 50
             screen.blit(default_font.render("Game Over" , True, black),
