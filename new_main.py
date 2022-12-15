@@ -1,7 +1,7 @@
 import pygame
-from random import randint
 from numpy import sign
-
+from random import randint, choice
+from math import copysign
 
 FPS = 60
 screen_width, screen_height = 800, 600
@@ -29,7 +29,7 @@ class Player(pygame.sprite.Sprite):
         self.speed_x = 0
         self.speed_y = 0
         self.speed_max = 10
-        self.speed_jump = 15
+        self.speed_jump = 20
 
     def draw(self):
         """
@@ -57,7 +57,7 @@ class Player(pygame.sprite.Sprite):
 
 
 class Platform(pygame.sprite.Sprite):
-    def __init__(self, screen, pos_x, pos_y, width, height):
+    def __init__(self, screen, pos_y, width, height):
         """
         Класс платформ, способных к коллизии с моделькой игрока.
         Основа для разных типов платформ.
@@ -69,9 +69,10 @@ class Platform(pygame.sprite.Sprite):
         """
         super().__init__()
         self.screen = screen
+        self.pos_x = randint(40, 640)
         self.image = pygame.image.load("platform.jpg")
         self.surf = pygame.transform.scale(self.image, (width, height))
-        self.rect = pygame.Rect(pos_x, pos_y, width, height)
+        self.rect = pygame.Rect(self.pos_x, pos_y, width, height)
 
     def draw(self):
         """
@@ -81,7 +82,21 @@ class Platform(pygame.sprite.Sprite):
         self.screen.blit(self.surf, self.rect)
 
 
-def move(player, platforms):
+class HorizontalMovingPlatform(Platform):
+    def __init__(self, screen, pos_y, width, height):
+        super().__init__(screen=screen, pos_y=pos_y, width=width, height=height)
+        self.speed_x = 5
+        self.traj_length = randint(100, 250)
+        self.pos_x = randint(40 + self.traj_length, 640 - self.traj_length)
+
+    def platform_move(self):
+        self.rect[0] = self.rect[0] + self.speed_x
+        if self.rect[0] < self.pos_x - self.traj_length and self.speed_x < 0 or \
+           self.rect[0] > self.pos_x + self.traj_length and self.speed_x > 0:
+            self.speed_x = -self.speed_x
+
+
+def move(player, platforms, score):
     """
     Функция обновления и перемещения.
     Рассчитывает направление и скорость (горизонтальную и вертикальную),
@@ -104,12 +119,15 @@ def move(player, platforms):
         player.speed_x = sign(player.speed_x) * player.speed_max
     else:
         player.speed_x += destination
-    player.rect[0] += round(player.speed_x)
 
-    if collide and abs(player.speed_y) >= 0:
+    for plat in platforms:
+        if plat.__class__ == HorizontalMovingPlatform:
+            plat.platform_move()
+
+    if collide:
         player.speed_y = 0
         player.rect[1] = platform.rect[1] - player.rect[3] + 1
-    if not collide and player.speed_jump >= player.speed_y >= -6.5:
+    if not collide and player.speed_jump >= player.speed_y >= -13:
         player.speed_y -= 1
     if collide and (keys[pygame.K_UP] or keys[pygame.K_SPACE]):
         player.speed_y += player.speed_jump
@@ -122,41 +140,94 @@ def move(player, platforms):
          (player.rect[1] > screen_height/2):
         player.rect[1] -= round(player.speed_y)
 
+    player.rect[0] += round(player.speed_x)
+    if player.rect[0] + player.rect.width / 2 > 800:
+        player.rect[0] -= 800
+    if player.rect[0] + player.rect.width / 2 < 0:
+        player.rect[0] += 800
+
+    if player.speed_y > 0:
+        return score + player.speed_y
+    else:
+        return score
+
 
 def spawn_start():
     platforms = []
     for i in range(7):
-        platforms.append(Platform(screen=screen, pos_x=randint(50, 750),
-                                  pos_y=-50 + 100 * i, width=120, height=20))
+        platforms.append(Platform(screen=screen, pos_y=-50 + 100 * i,
+                                  width=120, height=20))
     return platforms
 
 
-def changing_platforms(platforms):
-    for i in range(len(platforms)):
-        if platforms[i].rect[1] > screen_height:
-            platforms[i] = Platform(screen=screen, pos_x=randint(50, 750),
-                                    pos_y=-50, width=120, height=20)
+def generating_platforms(platforms, score, score_):
+    if score - score_ >= 50:
+        max_height = 0
+        for plat in platforms:
+            if plat.rect[1] < max_height:
+                max_height = plat.rect[1]
+        chance = randint(1, 8)
+        if chance > 5:
+            platforms.append(HorizontalMovingPlatform(screen=screen,
+                                                      pos_y=max_height-100,
+                                                      width=120,
+                                                      height=20))
+        else:
+            platforms.append(Platform(screen=screen,
+                                      pos_y=max_height-100,
+                                      width=120, height=20))
+        return score
+    else:
+        return score_
+
+
+def deleting_platforms(platforms):
+    for plat in platforms:
+        if plat.rect[1] > 600:
+            platforms.remove(plat)
+
+
+def game_over(player):
+    if player.rect[1] > 600:
+        return True
+    else:
+        return False
 
 
 def main():
+
     pygame.init()
+    default_font = pygame.font.Font(None, 36)
+    game_over_text = default_font.render("Game over", True, black)
     clock = pygame.time.Clock()
     finished = False
+    game_over_status = False
+    score = 0
+    score_ = 0
     platforms = spawn_start()
     player = Player(screen=screen, start_x=platforms[-1].rect[0],
                     start_y=platforms[-1].rect[1] - 53)
     while not finished:
         clock.tick(FPS)
-        pygame.display.update()
-        screen.fill(white)
-        changing_platforms(platforms)
-        move(player, platforms)
-        for plat in platforms:
-            plat.draw()
-        player.draw()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 finished = True
+        screen.fill(white)
+        if not game_over_status:
+            game_over_status = game_over(player=player)
+            score_ = generating_platforms(platforms, score=score, score_=score_)
+            deleting_platforms(platforms)
+            score = move(player=player, platforms=platforms, score=score)
+            player.draw()
+            for plat in platforms:
+                plat.draw()
+        if game_over_status:
+            platforms = spawn_start()
+            player.rect[0] = platforms[-1].rect[0]
+            player.rect[1] = platforms[-1].rect[1] - 50
+            game_over_status = False
+            screen.blit(game_over_text, (300, 300))
+        pygame.display.update()
 
 
 if __name__ == "__main__":
