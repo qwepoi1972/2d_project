@@ -9,7 +9,8 @@ screen_width, screen_height = 800, 600
 black = 0, 0, 0
 white = 255, 255, 255
 screen = pygame.display.set_mode([screen_width, screen_height])
-background = pygame.transform.scale(pygame.image.load("background.jpg"), [screen_width, screen_height])
+background = pygame.transform.scale(pygame.image.load("background.jpg"),
+                                    [screen_width, screen_height])
 
 
 def move(player, platforms, stars, score):
@@ -18,7 +19,8 @@ def move(player, platforms, stars, score):
     Рассчитывает направление и скорость (горизонтальную и вертикальную),
     перемещает модельку на указанные координаты.
     При достижении моделькой середины экрана начинает двигать платформы
-    вниз с той же по модулю скоростью, имитируя движение камеры вслед за игроком.
+    вниз с той же по модулю скоростью,
+    имитируя движение камеры вслед за игроком.
     :param player: объект класса игрок.
     :param platforms: array - массив платформ, с которыми возможна коллизия.
     :param stars: array - массив звёзд, с которыми возможна коллизия.
@@ -42,19 +44,18 @@ def move(player, platforms, stars, score):
         if plat.__class__ == HorizontalMovingPlatform:
             plat.platform_move()
 
-    if not player.star_check and collide:
-        player.speed_y = 0
-        player.rect[1] = platform.rect[1] - player.rect[3] + 5
-    if not player.star_check and not collide \
-            and player.speed_jump >= player.speed_y >= -13:
-        player.speed_y -= 1
+    if not player.star_check:
+        if collide and player.speed_y <= 0:
+            player.speed_y = 0
+            player.rect[1] = platform.rect[1] - player.rect[3] + 5
+            if keys[pygame.K_UP] or keys[pygame.K_SPACE]:
+                player.speed_y = player.speed_jump
+        elif not collide and player.speed_jump >= player.speed_y >= -13:
+            player.speed_y -= 1
     else:
         player.speed_y = min(player.speed_y + 1, player.speed_jump)
         if player.speed_y < player.speed_jump:
             player.speed_y += 1
-    if not player.star_check and collide \
-            and (keys[pygame.K_UP] or keys[pygame.K_SPACE]):
-        player.speed_y = player.speed_jump
 
     if player.rect[1] <= screen_height/2 and player.speed_y >= 0:
         for plat in platforms:
@@ -81,7 +82,8 @@ def spawn_start():
     Функция создания платформ для начального экрана.
     :return: platforms - array, массив платформ.
     """
-    platforms = [Platform(screen=screen, pos_y=-50 + 100 * i, width=120, height=20) for i in range(7)]
+    platforms = [Platform(screen=screen, pos_y=-50 + 100 * i,
+                          width=120, height=20) for i in range(7)]
     return platforms
 
 
@@ -96,17 +98,31 @@ def generating_platforms(platforms, stars, score, score_):
     """
     if score - score_ >= 50:
         max_height = min(platform.rect[1] for platform in platforms)
-        if randint(1, 8) > 6:
+        chance = randint(1,100)
+        if chance > 80:
             platforms.append(HorizontalMovingPlatform(screen=screen,
                                                       pos_y=max_height-100,
                                                       width=120,
                                                       height=20))
-        else:
+        elif chance in [77, 78, 79, 80]:
             platforms.append(Platform(screen=screen,
                                       pos_y=max_height-100,
                                       width=120, height=20))
-            stars.append(Star(screen=screen, start_x=platforms[-1].pos_x,
-                              start_y=max_height-120))
+            stars.append(Star(screen=screen,
+                              start_x=randint(platforms[-1].rect[0] +
+                                              140, 780),
+                              start_y=max_height-100))
+        elif chance in [73, 74, 75, 76]:
+            platforms.append(Platform(screen=screen,
+                                      pos_y=max_height - 100,
+                                      width=120, height=20))
+            stars.append(Star(screen=screen,
+                              start_x=randint(20, platforms[-1].rect[0] - 20),
+                              start_y=max_height - 100))
+        else:
+            platforms.append(Platform(screen=screen,
+                                      pos_y=max_height - 100,
+                                      width=120, height=20))
         return score
     else:
         return score_
@@ -163,15 +179,18 @@ def main():
                 player.star_check = False
 
         if not player.star_check:
-            player.star_check = player.check_collision_stars(stars)
+            player.star_check, star = player.check_collision_stars(stars)
+            if star:
+                stars.remove(star)
 
         screen.blit(background, background.get_rect())
         if not game_over_status:
             game_over_status = game_over(player=player)
             screen.blit(
-                default_font.render(str(round(score / 100)), True, black),
+                default_font.render(str(round(score / 100)), True, white),
                 (10, 10))
-            score_ = generating_platforms(platforms, stars, score=score, score_=score_)
+            score_ = generating_platforms(platforms, stars,
+                                          score=score, score_=score_)
             deleting_objects(platforms, stars)
             score = move(player=player, platforms=platforms,
                          score=score, stars=stars)
@@ -185,12 +204,13 @@ def main():
             stars = []
             player.rect[0] = platforms[-1].rect[0]
             player.rect[1] = platforms[-1].rect[1] - 75
-            screen.blit(default_font.render("Game Over", True, black),
-                        (300, 200))
-            screen.blit(default_font.render("Your score is: " + str(round(score/100)), True, black),
-                        (250, 300))
-            screen.blit(default_font.render("Press any button to restart", True, black),
-                        (180, 400))
+            screen.blit(default_font.render("Game Over",
+                                            True, black), (300, 200))
+            screen.blit(default_font.render("Your score is: " +
+                                            str(round(score/100)),
+                                            True, black), (250, 300))
+            screen.blit(default_font.render("Press any button to restart",
+                                            True, black), (180, 400))
         pygame.display.update()
 
 

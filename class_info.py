@@ -1,16 +1,20 @@
 import pygame
-from random import randint
+from random import randint, choice
 
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, screen, start_x, start_y):
         """
         Класс модельки, управляемой игроком.
-        Способен передвигаться горизонтально и вертикально по нажатию соответствующих клавиш клавиатуры.
+        Способен передвигаться горизонтально и вертикально
+        по нажатию соответствующих клавиш клавиатуры.
         Способен совершать прыжки на некоторое расстояние.
-        :param screen: Surface - поверхность, на которую отрисовывается моделька.
-        :param start_x: int - координата x экрана, на которой появляется моделька.
-        :param start_y: int - координата y экрана, на которой появляется моделька.
+        :param screen: Surface - поверхность,
+        на которую отрисовывается моделька.
+        :param start_x: int - координата x экрана,
+        на которой появляется моделька.
+        :param start_y: int - координата y экрана,
+        на которой появляется моделька.
         """
 
         super().__init__()
@@ -29,7 +33,8 @@ class Player(pygame.sprite.Sprite):
     def check_collision_platforms(self, platforms):
         """
         Метод проверки коллизии с платформами.
-        :param platforms: array - массив платформ, с которыми возможна коллизия.
+        :param platforms: array - массив платформ,
+        с которыми возможна коллизия.
         """
         self.rect[0] += round(self.speed_x)
         self.rect[1] -= round(self.speed_y)
@@ -50,21 +55,35 @@ class Player(pygame.sprite.Sprite):
         if collide:
             self.star_check = True
             pygame.time.set_timer(pygame.USEREVENT+1, 3000)
-            return True
+            min_star = None
+            min_dist = 800
+            for star in stars:
+                star_dist = ((star.rect[0] - self.rect[0])**2 +
+                             (star.rect[1] - self.rect[1])**2)**0.5
+                if star_dist < min_dist:
+                    min_star = star
+                    min_dist = star_dist
+            return True, min_star
         else:
-            return False
+            return False, None
 
     def draw(self, platforms):
         """
         Метод отрисовки объекта класса.
-        Рисует модельку объекта класса с учётом направления нажатых клавиш(влево или вправо) на поверхности self.screen.
-        :param platforms: array, передаётся массив платформ для проверки коллизии.
+        Рисует модельку объекта класса с учётом направления
+        нажатых клавиш(влево или вправо) на поверхности self.screen.
+        :param platforms: array, передаётся массив платформ
+        для проверки коллизии.
         """
         collide = self.check_collision_platforms(platforms)[1]
-        if not collide:
-            self.screen.blit(pygame.transform.flip(self.image_jump, self.reflection, False), self.rect)
+        if not collide or self.speed_y > 2:
+            self.screen.blit(pygame.transform.flip(self.image_jump,
+                                                   self.reflection, False),
+                             self.rect)
         else:
-            self.screen.blit(pygame.transform.flip(self.image_stand, self.reflection, False), self.rect)
+            self.screen.blit(pygame.transform.flip(self.image_stand,
+                                                   self.reflection, False),
+                             self.rect)
 
 
 class Platform(pygame.sprite.Sprite):
@@ -72,8 +91,10 @@ class Platform(pygame.sprite.Sprite):
         """
         Класс платформ, способных к коллизии с моделькой игрока.
         Основа для разных типов платформ.
-        :param screen: Surface - поверхность, на которую отрисовывается платформа.
-        :param pos_y: int - координата y экрана, на которой появляется моделька.
+        :param screen: Surface - поверхность,
+        на которую отрисовывается платформа.
+        :param pos_y: int - координата y экрана,
+        на которой появляется моделька.
         :param width: int - толщина в пикселях платформы.
         :param height: int - высота в пикселях платформы.
         """
@@ -95,9 +116,12 @@ class Platform(pygame.sprite.Sprite):
 class HorizontalMovingPlatform(Platform):
     def __init__(self, screen, pos_y, width, height):
         """
-        Класс платформ, способных к коллизии с моделькой игрока и движению горизонтально с постоянной скоростью.
-        :param screen: Surface - поверхность, на которую отрисовывается платформа.
-        :param pos_y: int - координата y экрана, на которой появляется моделька.
+        Класс платформ, способных к коллизии с моделькой игрока
+        и движению горизонтально с постоянной скоростью.
+        :param screen: Surface - поверхность,
+        на которую отрисовывается платформа.
+        :param pos_y: int - координата y экрана,
+        на которой появляется моделька.
         :param width: int - толщина в пикселях платформы.
         :param height: int - высота в пикселях платформы.
         """
@@ -120,10 +144,14 @@ class Star(pygame.sprite.Sprite):
     def __init__(self, screen, start_x, start_y):
         """
         Класс звёзд, способных к коллизии с моделькой игрока.
-        При коллизии с моделькой игрока игрок получает постоянную вертикальную скорость на ограниченное время.
-        :param screen: Surface - поверхность, на которую отрисовывается платформа.
-        :param start_x: int - координата x экрана, на которой появляется моделька.
-        :param start_y: int - координата y экрана, на которой появляется моделька.
+        При коллизии с моделькой игрока игрок получает постоянную вертикальную
+        скорость на ограниченное время.
+        :param screen: Surface - поверхность,
+        на которую отрисовывается платформа.
+        :param start_x: int - координата x экрана,
+        на которой появляется моделька.
+        :param start_y: int - координата y экрана,
+        на которой появляется моделька.
         """
         super().__init__()
         self.screen = screen
