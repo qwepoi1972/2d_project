@@ -197,8 +197,7 @@ def game_over(player):
 def main():
 
     pygame.init()
-    default_font = pygame.font.Font(None, 36)
-    game_over_text = default_font.render("Game over", True, black)
+    default_font = pygame.font.SysFont('Verdana', 36)
     clock = pygame.time.Clock()
     finished = False
     game_over_status = False
@@ -212,6 +211,8 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 finished = True
+            if event.type == pygame.KEYDOWN:
+                game_over_status = False
         screen.fill(white)
         if not game_over_status:
             game_over_status = game_over(player=player)
@@ -225,8 +226,12 @@ def main():
             platforms = spawn_start()
             player.rect[0] = platforms[-1].rect[0]
             player.rect[1] = platforms[-1].rect[1] - 50
-            game_over_status = False
-            screen.blit(game_over_text, (300, 300))
+            screen.blit(default_font.render("Game Over" , True, black),
+                        (300, 200))
+            screen.blit(default_font.render("Your score is: " + str(round(score/100)), True, black),
+                        (250, 300))
+            screen.blit(default_font.render("Press any button to restart", True, black),
+                        (180, 400))
         pygame.display.update()
 
 
