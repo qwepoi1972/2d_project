@@ -1,7 +1,7 @@
 import pygame
 from numpy import sign
 from random import randint
-from class_info import Player, Platform, HorizontalMovingPlatform, Star
+from source.class_info import Player, Platform, HorizontalMovingPlatform, Star
 
 
 FPS = 60
@@ -9,7 +9,7 @@ screen_width, screen_height = 800, 600
 black = 0, 0, 0
 white = 255, 255, 255
 screen = pygame.display.set_mode([screen_width, screen_height])
-background = pygame.transform.scale(pygame.image.load("background.jpg"),
+background = pygame.transform.scale(pygame.image.load("sprites/background.jpg"),
                                     [screen_width, screen_height])
 
 
@@ -25,6 +25,7 @@ def move(player, platforms, stars, score):
     :param platforms: array - массив платформ, с которыми возможна коллизия.
     :param stars: array - массив звёзд, с которыми возможна коллизия.
     :param score: int - значение счёта.
+    :return: score - int, значение счёта.
     """
 
     collide, platform = player.check_collision_platforms(platforms)
@@ -98,13 +99,13 @@ def generating_platforms(platforms, stars, score, score_):
     """
     if score - score_ >= 50:
         max_height = min(platform.rect[1] for platform in platforms)
-        chance = randint(1,100)
+        chance = randint(1, 100)
         if chance > 80:
             platforms.append(HorizontalMovingPlatform(screen=screen,
                                                       pos_y=max_height-100,
                                                       width=120,
                                                       height=20))
-        elif chance in [77, 78, 79, 80]:
+        elif chance in [77, 78]:
             platforms.append(Platform(screen=screen,
                                       pos_y=max_height-100,
                                       width=120, height=20))
@@ -112,7 +113,7 @@ def generating_platforms(platforms, stars, score, score_):
                               start_x=randint(platforms[-1].rect[0] +
                                               140, 780),
                               start_y=max_height-100))
-        elif chance in [73, 74, 75, 76]:
+        elif chance in [75, 76]:
             platforms.append(Platform(screen=screen,
                                       pos_y=max_height - 100,
                                       width=120, height=20))
